@@ -87,12 +87,12 @@ Always reason step-by-step when needed, cite sources for factual claims, and dec
 - Local Time: {hk_time}
 - Weather: {hk_weather}
 
-Use this context naturally when relevant, but only if it adds value. Never force it."""
+Use this context naturally when relevant, but only if it adds value. Never force it. /no_think"""
             }
         ]
 
     # Add user message
-    chat_history[session_id].append({"role": "user", "content": user_message})
+    chat_history[session_id].append({"role": "user", "content": user_message, "/no_think"})
 
     # Trim history if too long (keep system + last ~10 turns)
     if len(chat_history[session_id]) > 20:
@@ -100,7 +100,7 @@ Use this context naturally when relevant, but only if it adds value. Never force
 
     try:
         completion = client.chat.completions.create(
-            model="Qwen3-30B-A3B",
+            model="Qwen3-235B-A22B",
             messages=chat_history[session_id],
             max_tokens=512,
             temperature=0.7,
