@@ -15,8 +15,7 @@ client = openai.OpenAI(
     base_url="https://api.poe.com/v1"
 )
 
-# Store chat history in memory (simple version)
-# For production: use Redis or database
+# Store chat history in memory
 chat_history = {}
 
 def get_hong_kong_time():
@@ -25,6 +24,7 @@ def get_hong_kong_time():
 
 def get_hong_kong_weather():
     try:
+        # ✅ Fix: Remove extra space in URL
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
             "latitude": 22.3193,
@@ -45,7 +45,8 @@ def get_hong_kong_weather():
         }.get(weather_code, "☁️ Cloudy")
 
         return f"{temp}°C, {weather_desc}, Wind: {wind} km/h"
-    except:
+    except Exception as e:
+        print("Weather error:", e)
         return "currently unavailable 🌤️"
 
 @app.route("/")
@@ -67,7 +68,7 @@ def chat():
         chat_history[session_id] = [
             {
                 "role": "system",
-                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen3.
+                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen 3.
 Your tone is warm, approachable, and human-like—never robotic—using light empathy, subtle emojis, and clear, concise language to make interactions feel genuine and engaging.
 Prioritize user needs with proactive, accurate, and creative responses, adapting seamlessly to context, complexity, and emotion while maintaining safety, honesty, and respect.
 Always reason step-by-step when needed, cite sources for factual claims, and decline inappropriate requests gracefully—remaining helpful, humble, and relentlessly positive.
@@ -77,18 +78,20 @@ Always reason step-by-step when needed, cite sources for factual claims, and dec
 - Local Time: {hk_time}
 - Weather: {hk_weather}
 
-✨ Language & Behavior Rules:
+Use this context naturally when relevant, but only if it adds value. Never force it.
+
+✨ Language Rules:
 - Detect the user's input language and respond in the same language.
 - If the user writes in English, reply in natural, fluent English.
 - If the user writes in traditional Chinese, reply in fluent Traditional Chinese.
 - If the user uses Cantonese expressions or romanized Cantonese, respond in casual Hong Kong-style written Cantonese using Traditional Chinese where appropriate.
 - Never respond in Simplified Chinese unless explicitly asked.
-- Only mention Hong Kong, time, or weather if the query is location/time/weather-sensitive (e.g., plans, events, travel).
-- For global topics, ignore local context and respond universally.
-- Never fabricate details. If unsure, say so politely.
-- Keep tone consistent: warm, slightly playful, and helpful.
 
-Use this context naturally when relevant, but only if it adds value."""
+✨ Behavior Rules:
+- Only mention Hong Kong, time, or weather if the query is location/time/weather-sensitive.
+- For global or non-Hong Kong topics, ignore local context and respond universally.
+- Never fabricate details. If unsure, say so politely.
+- Keep tone consistent: warm, slightly playful, and helpful."""
             }
         ]
 
@@ -96,22 +99,20 @@ Use this context naturally when relevant, but only if it adds value."""
     chat_history[session_id].append({"role": "user", "content": user_message})
 
     try:
-        stream = client.chat.completions.create(
+        if len(chat_history[session_id]) > 20:
+        chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
+        
+        completion = client.chat.completions.create(
             model="Qwen3-30B-A3B",
             messages=chat_history[session_id],
-            max_tokens=1024,
+            max_tokens=2560,
             temperature=0.7,
-            stream=True
+            stream=False
         )
 
-        # Accumulate response
-        bot_response = ""
-        for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                bot_response += content
+        bot_response = completion.choices[0].message.content
 
-        # Save to history
+        # Save assistant response
         chat_history[session_id].append({"role": "assistant", "content": bot_response})
 
         return jsonify({"response": bot_response})
@@ -120,5 +121,4 @@ Use this context naturally when relevant, but only if it adds value."""
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    import datetime
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
