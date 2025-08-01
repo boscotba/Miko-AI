@@ -103,7 +103,7 @@ Use this context naturally when relevant, but only if it adds value. Never force
         completion = client.chat.completions.create(
             model="Qwen3-30B-A3B",
             messages=chat_history[session_id],
-            max_tokens=1024,
+            max_tokens=512,
             temperature=0.7,
             stream=False
         )
