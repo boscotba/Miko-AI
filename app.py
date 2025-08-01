@@ -3,6 +3,7 @@ import os
 import openai
 import pytz
 import requests
+import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,7 +21,7 @@ chat_history = {}
 
 def get_hong_kong_time():
     tz = pytz.timezone("Asia/Hong_Kong")
-    return datetime.now(tz).strftime("%A, %B %d, %Y at %I:%M %p")
+    return datetime.datetime.now(tz).strftime("%A, %B %d, %Y at %I:%M %p")
 
 def get_hong_kong_weather():
     try:
