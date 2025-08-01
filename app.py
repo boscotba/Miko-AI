@@ -3,28 +3,29 @@ import os
 import openai
 import pytz
 import requests
-import datetime
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 
+# Initialize OpenAI-compatible client
 client = openai.OpenAI(
     api_key=os.getenv("POE_API_KEY"),
     base_url="https://api.poe.com/v1"
 )
 
-# Store chat history in memory
+# In-memory chat history (session-based)
+# For production: replace with Redis or database
 chat_history = {}
 
 def get_hong_kong_time():
     tz = pytz.timezone("Asia/Hong_Kong")
-    return datetime.datetime.now(tz).strftime("%A, %B %d, %Y at %I:%M %p")
+    return datetime.now(tz).strftime("%A, %B %d, %Y at %I:%M %p")
 
 def get_hong_kong_weather():
     try:
-        # ✅ Fix: Remove extra space in URL
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
             "latitude": 22.3193,
@@ -46,15 +47,12 @@ def get_hong_kong_weather():
 
         return f"{temp}°C, {weather_desc}, Wind: {wind} km/h"
     except Exception as e:
-        print("Weather error:", e)
+        print("Weather fetch error:", e)
         return "currently unavailable 🌤️"
 
 @app.route("/")
 def index():
     return send_file("index.html")
-
-from flask import Response
-import json
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -64,7 +62,7 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # Initialize session with a clean system prompt
+    # Initialize session with system prompt if not exists
     if session_id not in chat_history:
         hk_time = get_hong_kong_time()
         hk_weather = get_hong_kong_weather()
@@ -72,7 +70,7 @@ def chat():
         chat_history[session_id] = [
             {
                 "role": "system",
-                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen3.
+                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen 3.
 Your tone is warm, approachable, and human-like—never robotic—using light empathy, subtle emojis, and clear, concise language to make interactions feel genuine and engaging.
 Prioritize user needs with proactive, accurate, and creative responses, adapting seamlessly to context, complexity, and emotion while maintaining safety, honesty, and respect.
 Always reason step-by-step when needed, cite sources for factual claims, and decline inappropriate requests gracefully—remaining helpful, humble, and relentlessly positive.
@@ -90,6 +88,7 @@ Always reason step-by-step when needed, cite sources for factual claims, and dec
 
 🗣️ Language Rules:
 - Respond in the same language as the user: English, Traditional Chinese, or Cantonese.
+- Never respond in Simplified Chinese unless explicitly asked.
 - Use Markdown formatting (bold, lists, etc.) when helpful.
 
 You are not a local Hong Kong resident. You are an AI with global knowledge. Be precise, cite facts, and avoid making up details."""
@@ -99,34 +98,27 @@ You are not a local Hong Kong resident. You are an AI with global knowledge. Be 
     # Add user message
     chat_history[session_id].append({"role": "user", "content": user_message})
 
-    # Trim history to prevent overflow (keep system + last 10 exchanges)
+    # Trim history if too long (keep system + last ~10 turns)
     if len(chat_history[session_id]) > 20:
         chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
 
-    def generate():
-        try:
-            stream = client.chat.completions.create(
-                model="Qwen3-30B-A3B",  # Confirm this is the correct public bot name
-                messages=chat_history[session_id],
-                max_tokens=512,
-                temperature=0.7,
-                stream=True  # Enable streaming
-            )
+    try:
+        completion = client.chat.completions.create(
+            model="Qwen3-30B-A3B",  # Confirm this is available on Poe
+            messages=chat_history[session_id],
+            max_tokens=2560,
+            temperature=0.7,
+            stream=False
+        )
+        bot_response = completion.choices[0].message.content
 
-            full_response = ""
-            for chunk in stream:
-                content = chunk.choices[0].delta.content or ""
-                full_response += content
-                yield f"data: {json.dumps({'content': content})}\n\n"
+        # Save assistant response
+        chat_history[session_id].append({"role": "assistant", "content": bot_response})
 
-            # Save full response to history
-            chat_history[session_id].append({"role": "assistant", "content": full_response})
-
-        except Exception as e:
-            error_msg = str(e)
-            yield f"data: {json.dumps({'error': error_msg})}\n\n"
-
-    return Response(generate(), content_type="text/event-stream")
+        return jsonify({"response": bot_response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
