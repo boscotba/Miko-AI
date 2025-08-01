@@ -92,7 +92,7 @@ Use this context naturally when relevant, but only if it adds value. Never force
         ]
 
     # Add user message
-    chat_history[session_id].append({"role": "user", "content": user_message, "/no_think"})
+    chat_history[session_id].append({"role": "user", "content": user_message + "/no_think"})
 
     # Trim history if too long (keep system + last ~10 turns)
     if len(chat_history[session_id]) > 20:
@@ -102,7 +102,7 @@ Use this context naturally when relevant, but only if it adds value. Never force
         completion = client.chat.completions.create(
             model="Qwen3-235B-A22B",
             messages=chat_history[session_id],
-            max_tokens=512,
+            max_tokens=1024,
             temperature=0.7,
             stream=False
         )
