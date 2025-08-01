@@ -100,7 +100,7 @@ Use this context naturally when relevant, but only if it adds value. Never force
 
     try:
         if len(chat_history[session_id]) > 20:
-        chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
+            chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
         
         completion = client.chat.completions.create(
             model="Qwen3-30B-A3B",
