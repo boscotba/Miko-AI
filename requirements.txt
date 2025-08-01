@@ -1,3 +1,5 @@
+flask
 openai
-flash
 python-dotenv
+pytz
+requests
