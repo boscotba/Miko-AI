@@ -1,0 +1,3 @@
+openai
+flash
+python-dotenv

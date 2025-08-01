@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Miko - Your AI Assistant</title>
+
+  <!-- Markdown parser: marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background: #f7f9fc;
+      color: #333;
+      margin: 0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    #chat {
+      width: 100%;
+      height: 70vh;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-bottom: 15px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      font-size: 16px;
+    }
+
+    .user {
+      background: #007bff;
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .bot {
+      background: #f1f1f1;
+      color: #333;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Improve Markdown rendering inside .message */
+    .message p {
+      margin: 0 0 0.5em 0;
+    }
+
+    .message ul, .message ol {
+      margin: 0.5em 0;
+      padding-left: 20px;
+    }
+
+    .message li {
+      margin: 0.3em 0;
+    }
+
+    .message a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .message a:hover {
+      text-decoration: underline;
+    }
+
+    .message img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 5px 0;
+    }
+
+    .container {
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 5px rgba(0,123,255,0.3);
+    }
+
+    button {
+      padding: 12px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .typing {
+      color: #888;
+      font-style: italic;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>💬 Miko AI Assistant</h1>
+  <div id="chat"></div>
+  <div class="container">
+    <input type="text" id="userInput" placeholder="Ask me anything..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    // Setup marked.js for secure and clean Markdown rendering
+    marked.setOptions({
+      gfm: true,          // Use GitHub-flavored markdown
+      breaks: true,       // Convert line breaks to <br>
+      sanitize: false,    // Note: set to true if you want XSS protection
+      smartLists: true,
+      smartypants: true
+    });
+
+    const chatBox = document.getElementById("chat");
+    const userInput = document.getElementById("userInput");
+
+    // Add a message to the chat (sender: "user" or "bot")
+    function addMessage(text, sender) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = `message ${sender}`;
+
+      // Render Markdown to HTML
+      messageDiv.innerHTML = marked.parse(text);
+
+      chatBox.appendChild(messageDiv);
+      chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
+    }
+
+    // Send message to backend
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      userInput.value = "";
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          addMessage("⚠️ Sorry, something went wrong: " + data.error, "bot");
+        } else {
+          addMessage(data.response, "bot");
+        }
+      } catch (err) {
+        addMessage("❌ Network error. Please try again.", "bot");
+      }
+    }
+
+    // Allow pressing Enter to send
+    userInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+</html>
