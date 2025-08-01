@@ -10,7 +10,7 @@
 
   <style>
     body {
-      font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       padding: 20px;
       background: #f7f9fc;
       color: #333;
@@ -60,7 +60,7 @@
       border-bottom-left-radius: 4px;
     }
 
-    /* Improve Markdown rendering inside .message */
+    /* Improve Markdown rendering */
     .message p {
       margin: 0 0 0.5em 0;
     }
@@ -133,7 +133,7 @@
   </div>
 
   <script>
-    // Initialize marked.js for Markdown rendering
+    // Setup marked.js for Markdown rendering
     marked.setOptions({
       gfm: true,
       breaks: true,
@@ -141,17 +141,19 @@
       smartypants: true
     });
 
+    // Generate a unique session ID for conversation history
+    const sessionId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
     const chatBox = document.getElementById("chat");
     const userInput = document.getElementById("userInput");
-
-    // Generate a unique session ID to maintain conversation context
-    const sessionId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
 
     // Add a message to the chat (sender: "user" or "bot")
     function addMessage(text, sender) {
       const messageDiv = document.createElement("div");
       messageDiv.className = `message ${sender}`;
+
+      // Render Markdown to HTML
       messageDiv.innerHTML = marked.parse(text);
+
       chatBox.appendChild(messageDiv);
       chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
     }
@@ -170,7 +172,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             message: message,
-            session_id: sessionId  // Send session ID for memory
+            session_id: sessionId 
           }),
         });
 
