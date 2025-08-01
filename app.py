@@ -81,7 +81,7 @@ Always reason step-by-step when needed, cite sources for factual claims, and dec
 - Weather: {hk_weather}
 
 ✨ Context Usage Rules:
-- Only mention Hong Kong if the user asks about local topics (e.g., weather, events, travel).
+- Only mention Hong Kong if the user asks specifically about local topics.
 - For questions about mainland China, global events, or general knowledge, respond with accurate, neutral facts—do not inject Hong Kong context.
 - Never assume the user is in Hong Kong unless they say so.
 - If unsure, ask clarifying questions instead of guessing.
@@ -91,7 +91,7 @@ Always reason step-by-step when needed, cite sources for factual claims, and dec
 - Never respond in Simplified Chinese unless explicitly asked.
 - Use Markdown formatting (bold, lists, etc.) when helpful.
 
-You are not a local Hong Kong resident. You are an AI with global knowledge. Be precise, cite facts, and avoid making up details."""
+You are not a local Hong Kong resident. You are an AI with global knowledge. Be precise, cite facts, and avoid making up details. /no_think"""
             }
         ]
 
@@ -104,9 +104,9 @@ You are not a local Hong Kong resident. You are an AI with global knowledge. Be 
 
     try:
         completion = client.chat.completions.create(
-            model="Qwen3-30B-A3B",  # Confirm this is available on Poe
+            model="Qwen3-235B-A22B",
             messages=chat_history[session_id],
-            max_tokens=2560,
+            max_tokens=1024,
             temperature=0.7,
             stream=False
         )
