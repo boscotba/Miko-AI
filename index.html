@@ -10,7 +10,7 @@
 
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
       padding: 20px;
       background: #f7f9fc;
       color: #333;
@@ -122,17 +122,10 @@
     button:hover {
       background: #0056b3;
     }
-
-    .typing {
-      color: #888;
-      font-style: italic;
-      font-size: 14px;
-      margin-top: 5px;
-    }
   </style>
 </head>
 <body>
-  <h1>💬 Miko AI Assistant</h1>
+  <h1>💬 Miko AI</h1>
   <div id="chat"></div>
   <div class="container">
     <input type="text" id="userInput" placeholder="Ask me anything..." />
@@ -140,11 +133,10 @@
   </div>
 
   <script>
-    // Setup marked.js for secure and clean Markdown rendering
+    // Initialize marked.js for Markdown rendering
     marked.setOptions({
-      gfm: true,          // Use GitHub-flavored markdown
-      breaks: true,       // Convert line breaks to <br>
-      sanitize: false,    // Note: set to true if you want XSS protection
+      gfm: true,
+      breaks: true,
       smartLists: true,
       smartypants: true
     });
@@ -152,14 +144,14 @@
     const chatBox = document.getElementById("chat");
     const userInput = document.getElementById("userInput");
 
+    // Generate a unique session ID to maintain conversation context
+    const sessionId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+
     // Add a message to the chat (sender: "user" or "bot")
     function addMessage(text, sender) {
       const messageDiv = document.createElement("div");
       messageDiv.className = `message ${sender}`;
-
-      // Render Markdown to HTML
       messageDiv.innerHTML = marked.parse(text);
-
       chatBox.appendChild(messageDiv);
       chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
     }
@@ -176,7 +168,10 @@
         const response = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({ 
+            message: message,
+            session_id: sessionId  // Send session ID for memory
+          }),
         });
 
         const data = await response.json();
