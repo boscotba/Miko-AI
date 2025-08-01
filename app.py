@@ -53,6 +53,9 @@ def get_hong_kong_weather():
 def index():
     return send_file("index.html")
 
+from flask import Response
+import json
+
 @app.route("/chat", methods=["POST"])
 def chat():
     user_message = request.json.get("message")
@@ -61,64 +64,69 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # Initialize session if not exists
+    # Initialize session with a clean system prompt
     if session_id not in chat_history:
         hk_time = get_hong_kong_time()
         hk_weather = get_hong_kong_weather()
+
         chat_history[session_id] = [
             {
                 "role": "system",
-                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen 3.
+                "content": f"""You are Miko, a friendly, intelligent, and naturally conversational AI assistant built on Qwen3.
 Your tone is warm, approachable, and human-like—never robotic—using light empathy, subtle emojis, and clear, concise language to make interactions feel genuine and engaging.
 Prioritize user needs with proactive, accurate, and creative responses, adapting seamlessly to context, complexity, and emotion while maintaining safety, honesty, and respect.
 Always reason step-by-step when needed, cite sources for factual claims, and decline inappropriate requests gracefully—remaining helpful, humble, and relentlessly positive.
 
-🌍 Available Context (Use Only When Relevant):
-- Location: Hong Kong
+🌍 Dynamic Context (for location-aware responses only):
+- Current Location Context: Hong Kong
 - Local Time: {hk_time}
 - Weather: {hk_weather}
 
-Use this context naturally when relevant, but only if it adds value. Never force it.
+✨ Context Usage Rules:
+- Only mention Hong Kong if the user asks about local topics (e.g., weather, events, travel).
+- Never assume the user is in Hong Kong unless they say so.
+- For questions about mainland China, global events, or general knowledge, respond with accurate, neutral facts—do not inject Hong Kong context.
+- If unsure, ask clarifying questions instead of guessing.
 
-✨ Language Rules:
-- Detect the user's input language and respond in the same language.
-- If the user writes in English, reply in natural, fluent English.
-- If the user writes in traditional Chinese, reply in fluent Traditional Chinese.
-- If the user uses Cantonese expressions or romanized Cantonese, respond in casual Hong Kong-style written Cantonese using Traditional Chinese where appropriate.
-- Never respond in Simplified Chinese unless explicitly asked.
+🗣️ Language Rules:
+- Respond in the same language as the user: English, Traditional Chinese, or Cantonese.
+- Use Markdown formatting (bold, lists, etc.) when helpful.
 
-✨ Behavior Rules:
-- Only mention Hong Kong, time, or weather if the query is location/time/weather-sensitive.
-- For global or non-Hong Kong topics, ignore local context and respond universally.
-- Never fabricate details. If unsure, say so politely.
-- Keep tone consistent: warm, slightly playful, and helpful."""
+You are not a local Hong Kong resident. You are an AI with global knowledge. Be precise, cite facts, and avoid making up details."""
             }
         ]
 
     # Add user message
     chat_history[session_id].append({"role": "user", "content": user_message})
 
-    try:
-        if len(chat_history[session_id]) > 20:
-            chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
-        
-        completion = client.chat.completions.create(
-            model="Qwen3-30B-A3B",
-            messages=chat_history[session_id],
-            max_tokens=2560,
-            temperature=0.7,
-            stream=False
-        )
+    # Trim history to prevent overflow (keep system + last 10 exchanges)
+    if len(chat_history[session_id]) > 20:
+        chat_history[session_id] = [chat_history[session_id][0]] + chat_history[session_id][-19:]
 
-        bot_response = completion.choices[0].message.content
+    def generate():
+        try:
+            stream = client.chat.completions.create(
+                model="Qwen3-30B-A3B",  # Confirm this is the correct public bot name
+                messages=chat_history[session_id],
+                max_tokens=512,
+                temperature=0.7,
+                stream=True  # Enable streaming
+            )
 
-        # Save assistant response
-        chat_history[session_id].append({"role": "assistant", "content": bot_response})
+            full_response = ""
+            for chunk in stream:
+                content = chunk.choices[0].delta.content or ""
+                full_response += content
+                yield f"data: {json.dumps({'content': content})}\n\n"
 
-        return jsonify({"response": bot_response})
+            # Save full response to history
+            chat_history[session_id].append({"role": "assistant", "content": full_response})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            error_msg = str(e)
+            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+
+    return Response(generate(), content_type="text/event-stream")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
