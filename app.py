@@ -96,19 +96,26 @@ Use this context naturally when relevant, but only if it adds value."""
     chat_history[session_id].append({"role": "user", "content": user_message})
 
     try:
-        completion = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model="Qwen3-30B-A3B",
-            messages=chat_history[session_id],  # Full history
+            messages=chat_history[session_id],
             max_tokens=1024,
             temperature=0.7,
             stream=True
         )
-        bot_response = completion.choices[0].message.content
 
-        # Save assistant response
+        # Accumulate response
+        bot_response = ""
+        for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                bot_response += content
+
+        # Save to history
         chat_history[session_id].append({"role": "assistant", "content": bot_response})
 
         return jsonify({"response": bot_response})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
